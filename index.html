@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lista de Tarefas Pública</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Inter', sans-serif;
+    }
+
+    body {
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      color: #333;
+    }
+
+    #status {
+      margin-bottom: 1rem;
+      padding: 0.5rem 1rem;
+      background-color: #e0e0e0;
+      color: #444;
+      border-radius: 5px;
+      font-size: 0.9rem;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      width: 100%;
+      max-width: 500px;
+    }
+
+    li {
+      background: #fff;
+      padding: 1rem;
+      margin-bottom: 0.5rem;
+      border-radius: 5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    li button {
+      background: #ff4d4f;
+      border: none;
+      color: white;
+      padding: 0.4rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    #formulario {
+      margin-top: 1.5rem;
+      display: flex;
+      gap: 0.5rem;
+      max-width: 500px;
+      width: 100%;
+    }
+
+    #nova-tarefa {
+      flex: 1;
+      padding: 0.7rem;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 1rem;
+    }
+
+    button#add {
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      padding: 0.7rem 1rem;
+      font-size: 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>📋 Lista de Tarefas Global</h1>
+  <div id="status">🔄 Carregando tarefas...</div>
+  <ul id="lista-tarefas"></ul>
+
+  <div id="formulario">
+    <input id="nova-tarefa" placeholder="Digite uma nova tarefa..." />
+    <button id="add">Adicionar</button>
+  </div>
+
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+    const SUPABASE_URL = "https://lwzuhftucfogsmpfmxmu.supabase.co"; // ⬅️ Substitua aqui
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3enVoZnR1Y2ZvZ3NtcGZteG11Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc1Mjc1MTMsImV4cCI6MjA2MzEwMzUxM30.s_TNSKWDUEnXLJApNv0iwmqCp_WBpfrmLT5DuWLylkQ";                   // ⬅️ Substitua aqui
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const status = document.getElementById("status");
+    const lista = document.getElementById("lista-tarefas");
+    const input = document.getElementById("nova-tarefa");
+    const botaoAdd = document.getElementById("add");
+
+    function setStatus(msg, cor = "#444") {
+      status.textContent = msg;
+      status.style.color = cor;
+    }
+
+    async function carregarTarefas() {
+      setStatus("🔄 Carregando tarefas...", "#444");
+      const { data, error } = await supabase
+        .from("tarefas")
+        .select("*")
+        .order("id", { ascending: false });
+
+      if (error) {
+        setStatus("❌ Erro ao carregar tarefas.", "red");
+        console.error(error);
+        return;
+      }
+
+      lista.innerHTML = "";
+      if (data.length === 0) {
+        setStatus("⚠️ Nenhuma tarefa encontrada.");
+      } else {
+        setStatus(`✅ ${data.length} tarefa(s) carregadas.`);
+      }
+
+      data.forEach(tarefa => {
+        const li = document.createElement("li");
+        li.textContent = tarefa.titulo;
+
+        const btn = document.createElement("button");
+        btn.textContent = "Excluir";
+        btn.onclick = () => excluirTarefa(tarefa.id);
+
+        li.appendChild(btn);
+        lista.appendChild(li);
+      });
+    }
+
+    async function adicionarTarefa() {
+      const titulo = input.value.trim();
+      if (!titulo) {
+        setStatus("⚠️ Digite um título para a tarefa.", "orange");
+        return;
+      }
+
+      setStatus("⏳ Adicionando tarefa...");
+      const { error } = await supabase.from("tarefas").insert([{ titulo }]);
+
+      if (error) {
+        setStatus("❌ Erro ao adicionar tarefa.", "red");
+        console.error(error);
+      } else {
+        setStatus("✅ Tarefa adicionada com sucesso!", "green");
+        input.value = "";
+        carregarTarefas();
+      }
+    }
+
+    async function excluirTarefa(id) {
+      setStatus("⏳ Excluindo tarefa...");
+      const { error } = await supabase.from("tarefas").delete().eq("id", id);
+
+      if (error) {
+        setStatus("❌ Erro ao excluir tarefa.", "red");
+        console.error(error);
+      } else {
+        setStatus("✅ Tarefa excluída com sucesso!", "green");
+        carregarTarefas();
+      }
+    }
+
+    botaoAdd.addEventListener("click", adicionarTarefa);
+    input.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") adicionarTarefa();
+    });
+
+    carregarTarefas();
+  </script>
+</body>
+</html>
